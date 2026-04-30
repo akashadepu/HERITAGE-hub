@@ -1,0 +1,48 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users can read/write their own profile
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Products are publicly readable
+    // Artisans can create/update/delete their own products
+    match /products/{productId} {
+      allow read: if true;
+      allow create: if request.auth != null && request.resource.data.artisanId == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.artisanId == request.auth.uid;
+    }
+
+    // Orders: customers can read their own orders
+    // Artisans can read orders containing their products via artisanIds array
+    match /orders/{orderId} {
+      allow read: if request.auth != null && (
+        resource.data.customerId == request.auth.uid ||
+        request.auth.uid in resource.data.artisanIds
+      );
+      allow create: if request.auth != null && request.resource.data.customerId == request.auth.uid;
+      allow update: if request.auth != null && (
+        resource.data.customerId == request.auth.uid ||
+        request.auth.uid in resource.data.artisanIds
+      );
+    }
+
+    // Customization requests
+    match /customizationRequests/{requestId} {
+      allow read: if request.auth != null && (
+        resource.data.customerId == request.auth.uid ||
+        resource.data.artisanId == request.auth.uid
+      );
+      allow create: if request.auth != null && request.resource.data.customerId == request.auth.uid;
+      allow update: if request.auth != null && resource.data.artisanId == request.auth.uid;
+    }
+
+    // Reviews are publicly readable
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if request.auth != null && request.resource.data.customerId == request.auth.uid;
+    }
+  }
+}
